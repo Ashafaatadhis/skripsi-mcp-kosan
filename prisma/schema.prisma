@@ -1,0 +1,175 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id         String   @id @default(uuid())
+  telegramId BigInt?  @map("telegram_id")
+  role       Role
+  name       String   @db.VarChar(100)
+  phone      String?  @db.VarChar(20)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  kosan        Kosan[]
+  bookings     Booking[]
+  complaints   Complaint[]
+  bankAccounts BankAccount[]
+  memories     Memory[]
+
+  @@unique([telegramId, role])
+  @@map("users")
+}
+
+model Kosan {
+  id          String   @id @default(uuid())
+  ownerId     String   @map("owner_id")
+  name        String   @db.VarChar(100)
+  address     String?
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  owner User   @relation(fields: [ownerId], references: [id])
+  rooms Room[]
+
+  @@map("kosan")
+}
+
+model Room {
+  id          String     @id @default(uuid())
+  kosanId     String     @map("kosan_id")
+  name        String     @db.VarChar(50)
+  price       Int
+  type        RoomType
+  facilities  String[]
+  status      RoomStatus @default(available)
+  description String?
+  photos      String[]
+
+  kosan      Kosan       @relation(fields: [kosanId], references: [id])
+  bookings   Booking[]
+  complaints Complaint[]
+
+  @@map("rooms")
+}
+
+model Booking {
+  id        String        @id @default(uuid())
+  roomId    String        @map("room_id")
+  tenantId  String        @map("tenant_id")
+  startDate DateTime      @map("start_date") @db.Date
+  endDate   DateTime      @map("end_date") @db.Date
+  status    BookingStatus @default(pending)
+  createdAt DateTime      @default(now()) @map("created_at")
+
+  room     Room      @relation(fields: [roomId], references: [id])
+  tenant   User      @relation(fields: [tenantId], references: [id])
+  payments Payment[]
+
+  @@map("bookings")
+}
+
+model Payment {
+  id         String        @id @default(uuid())
+  bookingId  String        @map("booking_id")
+  amount     Int
+  status     PaymentStatus @default(pending)
+  paymentUrl String?       @map("payment_url")
+  externalId String?       @unique @map("external_id") @db.VarChar(100)
+  paidAt     DateTime?     @map("paid_at")
+  createdAt  DateTime      @default(now()) @map("created_at")
+
+  booking Booking @relation(fields: [bookingId], references: [id])
+
+  @@map("payments")
+}
+
+model Complaint {
+  id          String          @id @default(uuid())
+  roomId      String          @map("room_id")
+  tenantId    String          @map("tenant_id")
+  description String
+  photoUrl    String?         @map("photo_url")
+  status      ComplaintStatus @default(open)
+  resolution  String?
+  createdAt   DateTime        @default(now()) @map("created_at")
+  resolvedAt  DateTime?       @map("resolved_at")
+
+  room   Room @relation(fields: [roomId], references: [id])
+  tenant User @relation(fields: [tenantId], references: [id])
+
+  @@map("complaints")
+}
+
+model Memory {
+  id              String     @id @default(uuid())
+  chatId          String     @map("chat_id") @db.VarChar(100)
+  memoryType      MemoryType @map("memory_type")
+  content         String
+  importanceScore Float      @default(0.5) @map("importance_score")
+  createdAt       DateTime   @default(now()) @map("created_at")
+
+  user User @relation(fields: [chatId], references: [id])
+
+  @@map("memories")
+}
+
+model BankAccount {
+  id            String  @id @default(uuid())
+  ownerId       String  @map("owner_id")
+  bankName      String  @map("bank_name") @db.VarChar(50)
+  accountNumber String  @map("account_number") @db.VarChar(30)
+  accountName   String  @map("account_name") @db.VarChar(100)
+  isPrimary     Boolean @default(false) @map("is_primary")
+
+  owner User @relation(fields: [ownerId], references: [id])
+
+  @@map("bank_accounts")
+}
+
+enum Role {
+  tenant
+  owner
+}
+
+enum RoomType {
+  putra
+  putri
+  campur
+}
+
+enum RoomStatus {
+  available
+  occupied
+  maintenance
+}
+
+enum BookingStatus {
+  pending
+  confirmed
+  rejected
+  cancelled
+  active
+  ended
+}
+
+enum PaymentStatus {
+  pending
+  paid
+  failed
+  expired
+}
+
+enum ComplaintStatus {
+  open
+  in_progress
+  resolved
+}
+
+enum MemoryType {
+  fact
+  episode
+}
