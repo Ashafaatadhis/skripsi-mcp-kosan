@@ -1,12 +1,13 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
+import { generateHumanId } from "../common/utils/id.util";
 
 @Injectable()
 export class KosanService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getOwnerKosan(ownerId: string) {
-    return this.prisma.kosan.findFirst({
+  async listOwnerKosan(ownerId: string) {
+    return this.prisma.kosan.findMany({
       where: { ownerId },
       orderBy: { createdAt: "asc" },
     });
@@ -17,13 +18,16 @@ export class KosanService {
     name: string;
     address: string;
     description?: string;
+    imageUrls?: string[];
   }) {
     return this.prisma.kosan.create({
       data: {
+        humanId: generateHumanId('KSN'),
         ownerId: data.ownerId,
         name: data.name,
         address: data.address,
         description: data.description,
+        imageUrls: data.imageUrls ?? [],
       },
     });
   }

@@ -1,76 +1,81 @@
 import { Injectable } from "@nestjs/common";
-import { PrismaService } from "../prisma/prisma.service";
 import { PaymentStatus } from "@prisma/client";
-import axios from "axios";
-import { v4 as uuidv4 } from "uuid";
+import { PrismaService } from "../prisma/prisma.service";
 
 @Injectable()
 export class PaymentsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async createPayment(bookingId: string) {
-    const booking = await this.prisma.booking.findUniqueOrThrow({
-      where: { id: bookingId },
-      include: { room: true },
-    });
-
-    const externalId = uuidv4();
-
-    // TODO: Integrate dengan bayar.gg API
-    // const { data } = await axios.post(`${process.env.BAYARGG_BASE_URL}/payments`, {
-    //   amount: booking.room.price,
-    //   external_id: externalId,
-    //   ...
-    // }, { headers: { Authorization: `Bearer ${process.env.BAYARGG_API_KEY}` } });
-
-    const paymentUrl = `https://bayar.gg/pay/${externalId}`; // placeholder
-
-    return this.prisma.payment.create({
-      data: {
-        bookingId,
-        amount: booking.room.price,
-        status: PaymentStatus.pending,
-        paymentUrl,
-        externalId,
+  private readonly paymentInclude = {
+    booking: {
+      include: {
+        tenant: true,
+        room: {
+          include: {
+            kosan: true,
+          },
+        },
       },
-    });
-  }
+    },
+  } as const;
 
-  async getPaymentStatus(paymentId: string) {
-    return this.prisma.payment.findUnique({ where: { id: paymentId } });
+  async getPendingPayments(tenantId: string) {
+    const payments = await this.prisma.payment.findMany({
+      where: {
+        booking: { tenantId },
+        status: PaymentStatus.pending,
+      },
+      include: this.paymentInclude,
+      orderBy: { dueDate: "asc" },
+    });
+
+    return { payments, total: payments.length };
   }
 
   async getPaymentHistory(tenantId: string) {
     const payments = await this.prisma.payment.findMany({
       where: { booking: { tenantId } },
-      include: { booking: { include: { room: true } } },
-      orderBy: { createdAt: "desc" },
+      include: this.paymentInclude,
+      orderBy: [{ dueDate: "desc" }, { createdAt: "desc" }],
     });
+
     return { payments, total: payments.length };
   }
 
-  async getPaymentReport(ownerId: string, month?: string) {
-    const payments = await this.prisma.payment.findMany({
-      where: {
-        status: PaymentStatus.paid,
-        booking: { room: { kosan: { ownerId } } },
-        ...(month && {
-          paidAt: {
-            gte: new Date(`${month}-01`),
-            lt: new Date(`${month}-01`),
-          },
-        }),
-      },
-      include: { booking: { include: { room: true, tenant: true } } },
+  async getPaymentStatus(paymentId: string, tenantId: string) {
+    return this.prisma.payment.findFirst({
+      where: { id: paymentId, booking: { tenantId } },
+      include: this.paymentInclude,
     });
-    const totalAmount = payments.reduce((sum, p) => sum + p.amount, 0);
-    return { payments, totalAmount, count: payments.length };
   }
 
-  async handleWebhook(externalId: string) {
-    return this.prisma.payment.update({
-      where: { externalId },
-      data: { status: PaymentStatus.paid, paidAt: new Date() },
+  async payInvoice(paymentId: string, tenantId: string) {
+    const payment = await this.prisma.payment.findFirst({
+      where: { id: paymentId, booking: { tenantId } },
+      include: this.paymentInclude,
     });
+
+    if (!payment) {
+      throw new Error("Tagihan tidak ditemukan untuk tenant ini");
+    }
+
+    if (payment.status === PaymentStatus.paid) {
+      throw new Error("Tagihan ini sudah dibayar");
+    }
+
+    return {
+      paymentId: payment.id,
+      status: payment.status,
+      amount: payment.amount,
+      dueDate: payment.dueDate,
+      roomName: payment.booking.room.name,
+      kosanName: payment.booking.room.kosan.name,
+      instructions:
+        "Pembayaran dicatat manual dari web admin. Silakan hubungi pengelola kos, lalu tunggu verifikasi pembayaran di dashboard admin.",
+    };
+  }
+
+  async handleWebhook(_externalId: string) {
+    return { received: true, ignored: true };
   }
 }

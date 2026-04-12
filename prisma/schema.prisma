@@ -6,54 +6,61 @@ datasource db {
   provider = "postgresql"
 }
 
-model User {
-  id         String   @id @default(uuid())
-  telegramId BigInt?  @map("telegram_id")
-  role       Role
-  name       String   @db.VarChar(100)
-  phone      String?  @db.VarChar(20)
-  createdAt  DateTime @default(now()) @map("created_at")
-
+model Owner {
+  id           String   @id @default(uuid())
+  email        String   @unique @db.VarChar(150)
+  passwordHash String   @map("password_hash") @db.VarChar(255)
+  name         String   @db.VarChar(100)
+  phone        String?  @db.VarChar(20)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
   kosan        Kosan[]
-  bookings     Booking[]
-  complaints   Complaint[]
-  bankAccounts BankAccount[]
-  memories     Memory[]
 
-  @@unique([telegramId, role])
-  @@map("users")
+  @@map("owners")
 }
 
 model Kosan {
   id          String   @id @default(uuid())
   ownerId     String   @map("owner_id")
   name        String   @db.VarChar(100)
-  address     String?
+  address     String
   description String?
   createdAt   DateTime @default(now()) @map("created_at")
-
-  owner User   @relation(fields: [ownerId], references: [id])
-  rooms Room[]
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  humanId     String   @unique @map("human_id")
+  imageUrls   String[] @default([]) @map("image_urls")
+  owner       Owner    @relation(fields: [ownerId], references: [id])
+  rooms       Room[]
 
   @@map("kosan")
 }
 
 model Room {
-  id          String     @id @default(uuid())
-  kosanId     String     @map("kosan_id")
-  name        String     @db.VarChar(50)
-  price       Int
-  type        RoomType
-  facilities  String[]
-  status      RoomStatus @default(available)
-  description String?
-  photos      String[]
-
-  kosan      Kosan       @relation(fields: [kosanId], references: [id])
-  bookings   Booking[]
-  complaints Complaint[]
+  id           String    @id @default(uuid())
+  kosanId      String    @map("kosan_id")
+  name         String    @db.VarChar(50)
+  monthlyPrice Int       @map("monthly_price")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  humanId      String    @unique @map("human_id")
+  imageUrls    String[]  @default([]) @map("image_urls")
+  quantity     Int       @default(1)
+  bookings     Booking[]
+  kosan        Kosan     @relation(fields: [kosanId], references: [id])
 
   @@map("rooms")
+}
+
+model Tenant {
+  id         String    @id @default(uuid())
+  telegramId BigInt?   @unique @map("telegram_id")
+  name       String    @db.VarChar(100)
+  phone      String?   @db.VarChar(20)
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  bookings   Booking[]
+
+  @@map("tenants")
 }
 
 model Booking {
@@ -61,115 +68,103 @@ model Booking {
   roomId    String        @map("room_id")
   tenantId  String        @map("tenant_id")
   startDate DateTime      @map("start_date") @db.Date
-  endDate   DateTime      @map("end_date") @db.Date
-  status    BookingStatus @default(pending)
+  endDate   DateTime?     @map("end_date") @db.Date
+  status    BookingStatus @default(active)
+  note      String?
   createdAt DateTime      @default(now()) @map("created_at")
-
-  room     Room      @relation(fields: [roomId], references: [id])
-  tenant   User      @relation(fields: [tenantId], references: [id])
-  payments Payment[]
+  updatedAt DateTime      @updatedAt @map("updated_at")
+  room      Room          @relation(fields: [roomId], references: [id])
+  tenant    Tenant        @relation(fields: [tenantId], references: [id])
+  payments  Payment[]
 
   @@map("bookings")
 }
 
 model Payment {
-  id         String        @id @default(uuid())
-  bookingId  String        @map("booking_id")
-  amount     Int
-  status     PaymentStatus @default(pending)
-  paymentUrl String?       @map("payment_url")
-  externalId String?       @unique @map("external_id") @db.VarChar(100)
-  paidAt     DateTime?     @map("paid_at")
-  createdAt  DateTime      @default(now()) @map("created_at")
-
-  booking Booking @relation(fields: [bookingId], references: [id])
+  id             String        @id @default(uuid())
+  amount         Int
+  dueDate        DateTime      @map("due_date") @db.Date
+  paidAt         DateTime?     @map("paid_at")
+  status         PaymentStatus @default(pending)
+  note           String?
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+  bookingId      String        @map("booking_id")
+  proofImageUrls String[]      @default([]) @map("proof_image_urls")
+  booking        Booking       @relation(fields: [bookingId], references: [id])
 
   @@map("payments")
 }
 
-model Complaint {
-  id          String          @id @default(uuid())
-  roomId      String          @map("room_id")
-  tenantId    String          @map("tenant_id")
-  description String
-  photoUrl    String?         @map("photo_url")
-  status      ComplaintStatus @default(open)
-  resolution  String?
-  createdAt   DateTime        @default(now()) @map("created_at")
-  resolvedAt  DateTime?       @map("resolved_at")
+model checkpoint_blobs {
+  thread_id     String
+  checkpoint_ns String @default("")
+  channel       String
+  version       String
+  type          String
+  blob          Bytes?
 
-  room   Room @relation(fields: [roomId], references: [id])
-  tenant User @relation(fields: [tenantId], references: [id])
-
-  @@map("complaints")
+  @@id([thread_id, checkpoint_ns, channel, version])
 }
 
-model Memory {
-  id              String     @id @default(uuid())
-  chatId          String     @map("chat_id") @db.VarChar(100)
-  memoryType      MemoryType @map("memory_type")
-  content         String
-  importanceScore Float      @default(0.5) @map("importance_score")
-  createdAt       DateTime   @default(now()) @map("created_at")
-
-  user User @relation(fields: [chatId], references: [id])
-
-  @@map("memories")
+model checkpoint_migrations {
+  v Int @id
 }
 
-model BankAccount {
-  id            String  @id @default(uuid())
-  ownerId       String  @map("owner_id")
-  bankName      String  @map("bank_name") @db.VarChar(50)
-  accountNumber String  @map("account_number") @db.VarChar(30)
-  accountName   String  @map("account_name") @db.VarChar(100)
-  isPrimary     Boolean @default(false) @map("is_primary")
+model checkpoint_writes {
+  thread_id     String
+  checkpoint_ns String  @default("")
+  checkpoint_id String
+  task_id       String
+  idx           Int
+  channel       String
+  type          String?
+  blob          Bytes
 
-  owner User @relation(fields: [ownerId], references: [id])
-
-  @@map("bank_accounts")
+  @@id([thread_id, checkpoint_ns, checkpoint_id, task_id, idx])
 }
 
-enum Role {
-  tenant
-  owner
+model checkpoints {
+  thread_id            String
+  checkpoint_ns        String  @default("")
+  checkpoint_id        String
+  parent_checkpoint_id String?
+  type                 String?
+  checkpoint           Json
+  metadata             Json    @default("{}")
+
+  @@id([thread_id, checkpoint_ns, checkpoint_id])
 }
 
-enum RoomType {
-  putra
-  putri
-  campur
-}
+model long_term_memory {
+  id                String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id           String                 @db.VarChar(255)
+  content           String
+  embedding         Unsupported("vector")?
+  memory_type       String                 @db.VarChar(50)
+  category          String                 @db.VarChar(100)
+  canonical_key     String?                @db.VarChar(255)
+  confidence        Float?
+  importance_score  Float?
+  mention_count     Int?                   @default(1)
+  last_confirmed_at DateTime?              @default(now()) @db.Timestamp(6)
+  expires_at        DateTime?              @db.Timestamp(6)
+  created_at        DateTime?              @default(now()) @db.Timestamp(6)
 
-enum RoomStatus {
-  available
-  occupied
-  maintenance
+  @@unique([user_id, canonical_key])
+  @@index([expires_at], map: "idx_ltm_expires")
+  @@index([user_id], map: "idx_ltm_user_id")
 }
 
 enum BookingStatus {
-  pending
-  confirmed
-  rejected
-  cancelled
   active
-  ended
+  completed
+  cancelled
 }
 
 enum PaymentStatus {
   pending
   paid
-  failed
-  expired
-}
-
-enum ComplaintStatus {
-  open
-  in_progress
-  resolved
-}
-
-enum MemoryType {
-  fact
-  episode
+  overdue
+  cancelled
 }

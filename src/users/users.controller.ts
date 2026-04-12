@@ -1,5 +1,4 @@
 import { Body, Controller, Post } from "@nestjs/common";
-import { Role } from "@prisma/client";
 import { PinoLogger } from "nestjs-pino";
 import { UsersService } from "./users.service";
 
@@ -13,41 +12,35 @@ export class UsersController {
   }
 
   @Post("register")
-  async register(
-    @Body() body: { telegramId: number; name: string; role: Role },
-  ) {
+  async register(@Body() body: { telegramId: number; name?: string }) {
     this.logger.info(
       {
-        event: "user_register_request",
+        event: "tenant_register_request",
         telegramId: String(body.telegramId),
-        role: body.role,
+        role: "tenant",
       },
-      "Register user request received",
+      "Register tenant request received",
     );
 
-    const user = await this.usersService.registerUser(
-      body.telegramId,
-      body.name,
-      body.role,
-    );
+    const tenant = await this.usersService.registerUser(body.telegramId, body.name);
 
     this.logger.info(
       {
-        event: "user_register_success",
-        telegramId: user.telegramId ? user.telegramId.toString() : null,
-        userId: user.id,
-        role: user.role,
+        event: "tenant_register_success",
+        telegramId: tenant.telegramId ? tenant.telegramId.toString() : null,
+        userId: tenant.id,
+        role: "tenant",
       },
-      "User resolved successfully",
+      "Tenant resolved successfully",
     );
 
     return {
-      id: user.id,
-      telegramId: user.telegramId ? user.telegramId.toString() : null,
-      role: user.role,
-      name: user.name,
-      phone: user.phone,
-      createdAt: user.createdAt,
+      id: tenant.id,
+      telegramId: tenant.telegramId ? tenant.telegramId.toString() : null,
+      role: "tenant",
+      name: tenant.name,
+      phone: tenant.phone,
+      createdAt: tenant.createdAt,
     };
   }
 }

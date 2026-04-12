@@ -13,15 +13,15 @@ export class KosanController {
 
   @Get("me")
   async getMyKosan(@Query("ownerId") ownerId: string) {
-    const kosan = await this.kosanService.getOwnerKosan(ownerId);
+    const kosan = await this.kosanService.listOwnerKosan(ownerId);
 
     this.logger.info(
       {
-        event: "get_owner_kosan",
+        event: "get_owner_kosan_list",
         ownerId,
-        found: Boolean(kosan),
+        total: kosan.length,
       },
-      "Resolved owner kosan",
+      "Resolved owner kosan list",
     );
 
     return kosan;
@@ -29,7 +29,14 @@ export class KosanController {
 
   @Post()
   async createKosan(
-    @Body() body: { ownerId: string; name: string; address: string; description?: string },
+    @Body()
+    body: {
+      ownerId: string;
+      name: string;
+      address: string;
+      description?: string;
+      imageUrls?: string[];
+    },
   ) {
     this.logger.info(
       {
