@@ -7,7 +7,7 @@ datasource db {
 }
 
 model Owner {
-  id           String   @id @default(uuid())
+  id           String   @id @default(uuid()) @db.Uuid
   email        String   @unique @db.VarChar(150)
   passwordHash String   @map("password_hash") @db.VarChar(255)
   name         String   @db.VarChar(100)
@@ -20,40 +20,41 @@ model Owner {
 }
 
 model Kosan {
-  id          String   @id @default(uuid())
-  ownerId     String   @map("owner_id")
+  id          String   @id @default(uuid()) @db.Uuid
+  ownerId     String   @map("owner_id") @db.Uuid
   name        String   @db.VarChar(100)
   address     String
   description String?
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
   humanId     String   @unique @map("human_id")
-  imageUrls   String[] @default([]) @map("image_urls")
   owner       Owner    @relation(fields: [ownerId], references: [id])
   rooms       Room[]
+  images      Image[]
 
   @@map("kosan")
 }
 
 model Room {
-  id           String    @id @default(uuid())
-  kosanId      String    @map("kosan_id")
+  id           String    @id @default(uuid()) @db.Uuid
+  kosanId      String    @map("kosan_id") @db.Uuid
   name         String    @db.VarChar(50)
   monthlyPrice Int       @map("monthly_price")
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
   humanId      String    @unique @map("human_id")
-  imageUrls    String[]  @default([]) @map("image_urls")
   quantity     Int       @default(1)
+  facilities   String[]  @default([]) @map("facilities")
   bookings     Booking[]
   kosan        Kosan     @relation(fields: [kosanId], references: [id])
+  images       Image[]
 
   @@map("rooms")
 }
 
 model Tenant {
-  id         String    @id @default(uuid())
-  telegramId BigInt?   @unique @map("telegram_id")
+  id         String    @id @default(uuid()) @db.Uuid
+  telegramId String?   @unique @map("telegram_id")
   name       String    @db.VarChar(100)
   phone      String?   @db.VarChar(20)
   createdAt  DateTime  @default(now()) @map("created_at")
@@ -64,9 +65,10 @@ model Tenant {
 }
 
 model Booking {
-  id        String        @id @default(uuid())
-  roomId    String        @map("room_id")
-  tenantId  String        @map("tenant_id")
+  id        String        @id @default(uuid()) @db.Uuid
+  humanId   String        @unique @map("human_id")
+  roomId    String        @map("room_id") @db.Uuid
+  tenantId  String        @map("tenant_id") @db.Uuid
   startDate DateTime      @map("start_date") @db.Date
   endDate   DateTime?     @map("end_date") @db.Date
   status    BookingStatus @default(active)
@@ -81,7 +83,8 @@ model Booking {
 }
 
 model Payment {
-  id             String        @id @default(uuid())
+  id             String        @id @default(uuid()) @db.Uuid
+  humanId        String        @unique @map("human_id")
   amount         Int
   dueDate        DateTime      @map("due_date") @db.Date
   paidAt         DateTime?     @map("paid_at")
@@ -89,11 +92,26 @@ model Payment {
   note           String?
   createdAt      DateTime      @default(now()) @map("created_at")
   updatedAt      DateTime      @updatedAt @map("updated_at")
-  bookingId      String        @map("booking_id")
-  proofImageUrls String[]      @default([]) @map("proof_image_urls")
+  bookingId      String        @map("booking_id") @db.Uuid
   booking        Booking       @relation(fields: [bookingId], references: [id])
+  images         Image[]
 
   @@map("payments")
+}
+
+model Image {
+  id        String   @id @default(uuid()) @db.Uuid
+  url       String
+  kosanId   String?  @map("kosan_id") @db.Uuid
+  roomId    String?  @map("room_id") @db.Uuid
+  paymentId String?  @map("payment_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  kosan   Kosan?   @relation(fields: [kosanId], references: [id], onDelete: Cascade)
+  room    Room?    @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  payment Payment? @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@map("images")
 }
 
 model checkpoint_blobs {

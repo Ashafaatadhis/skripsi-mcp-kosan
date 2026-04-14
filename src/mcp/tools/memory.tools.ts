@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
-import { Resolver, Tool } from "@nestjs-mcp/server";
+import { RequestHandlerExtra, Resolver, Tool } from "@nestjs-mcp/server";
 import { z } from "zod";
+import { requireTenantUserId } from "../../auth/mcp-auth";
 import { MemoryService } from "../../memory/memory.service";
 
 @Resolver()
@@ -12,13 +13,16 @@ export class MemoryTools {
     name: "search_long_term_memory",
     description: `Cari ingatan jangka panjang tentang user yang sedang login.`,
     paramSchema: {
-      userId: z.string().nullable().optional(),
       query: z.string().nullable().optional().describe("Kata kunci memory yang dicari"),
     },
   })
-  async searchLongTermMemory(params: { userId: string | null; query?: string | null }) {
+  async searchLongTermMemory(
+    params: { query?: string | null },
+    extra: RequestHandlerExtra,
+  ) {
+    const userId = requireTenantUserId(extra);
     const result = await this.memory.searchLongTermMemory(
-      params.userId!,
+      userId,
       params.query ?? undefined,
     );
     return { content: [{ type: "text", text: JSON.stringify(result) }] };

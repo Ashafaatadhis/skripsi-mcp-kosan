@@ -7,3 +7,11 @@ export function generateHumanId(prefix: string): string {
   const timestampStr = Date.now().toString(36).slice(-2).toUpperCase();
   return `${prefix}-${randomStr}${timestampStr}`;
 }
+
+/**
+ * Normalisasi ID dari karakter dash/hyphen spesial ke tanda hubung standar (-)
+ */
+export function normalizeId(id: string): string {
+  if (!id) return id;
+  return id.replace(/[\u2010-\u2015]/g, "-");
+}

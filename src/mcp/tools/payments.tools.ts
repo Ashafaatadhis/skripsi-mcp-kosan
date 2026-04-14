@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
-import { Resolver, Tool } from "@nestjs-mcp/server";
+import { RequestHandlerExtra, Resolver, Tool } from "@nestjs-mcp/server";
 import { z } from "zod";
+import { requireTenantUserId } from "../../auth/mcp-auth";
 import { PaymentsService } from "../../payments/payments.service";
 
 @Resolver()
@@ -11,25 +12,14 @@ export class PaymentsTools {
   @Tool({
     name: "get_pending_payments",
     description: `Lihat tagihan pembayaran tenant yang belum dibayar.`,
-    paramSchema: {
-      userId: z.string().nullable().optional(),
-    }
+    paramSchema: {}
   })
-  async getPendingPayments(params: { userId: string | null }) {
-    const result = await this.payments.getPendingPayments(params.userId!);
-    return { content: [{ type: "text", text: JSON.stringify(result) }] };
-  }
-
-  @Tool({
-    name: "pay_invoice",
-    description: `Minta instruksi pembayaran manual untuk sebuah tagihan.`,
-    paramSchema: {
-      userId: z.string().nullable().optional(),
-      paymentId: z.string().describe("ID tagihan yang akan dibayar (WAJIB)"),
-    },
-  })
-  async payInvoice(params: { userId: string | null; paymentId: string }) {
-    const result = await this.payments.payInvoice(params.paymentId, params.userId!);
+  async getPendingPayments(
+    _params: Record<string, never>,
+    extra: RequestHandlerExtra,
+  ) {
+    const userId = requireTenantUserId(extra);
+    const result = await this.payments.getPendingPayments(userId);
     return { content: [{ type: "text", text: JSON.stringify(result) }] };
   }
 
@@ -37,24 +27,50 @@ export class PaymentsTools {
     name: "get_payment_status",
     description: `Cek status satu pembayaran.`,
     paramSchema: {
-      userId: z.string().nullable().optional(),
-      paymentId: z.string().describe("ID pembayaran yang ingin dicek (WAJIB)"),
+      paymentId: z.string().describe("ID pembayaran yang ingin dicek (gunakan Human ID seperti PYM-XXXX jika tersedia)"),
     },
   })
-  async getPaymentStatus(params: { userId: string | null; paymentId: string }) {
-    const result = await this.payments.getPaymentStatus(params.paymentId, params.userId!);
+  async getPaymentStatus(
+    params: { paymentId: string },
+    extra: RequestHandlerExtra,
+  ) {
+    const userId = requireTenantUserId(extra);
+    const result = await this.payments.getPaymentStatus(params.paymentId, userId);
     return { content: [{ type: "text", text: JSON.stringify(result) }] };
   }
 
   @Tool({
     name: "get_payment_history",
     description: `Lihat riwayat semua pembayaran tenant.`,
-    paramSchema: {
-      userId: z.string().nullable().optional()
-    }
+    paramSchema: {}
   })
-  async getPaymentHistory(params: { userId: string | null }) {
-    const result = await this.payments.getPaymentHistory(params.userId!);
+  async getPaymentHistory(
+    _params: Record<string, never>,
+    extra: RequestHandlerExtra,
+  ) {
+    const userId = requireTenantUserId(extra);
+    const result = await this.payments.getPaymentHistory(userId);
+    return { content: [{ type: "text", text: JSON.stringify(result) }] };
+  }
+
+  @Tool({
+    name: "upload_payment_proof",
+    description: `Unggah bukti bayar (foto struk/transfer) untuk tagihan tertentu. PENTING: Gunakan tool ini HANYA setelah user mengirim foto bukti bayar. Fokus pilih paymentId yang benar dari hasil get_pending_payments. imageUrl akan diisi otomatis oleh sistem bot dari foto yang baru dikirim user.`,
+    paramSchema: {
+      paymentId: z.string().describe("ID tagihan target (gunakan Human ID seperti PYM-XXXX dari hasil get_pending_payments)"),
+      imageUrl: z.string().optional().describe("Diisi otomatis oleh sistem dari foto user; tidak perlu ditebak manual"),
+    },
+  })
+  async uploadPaymentProof(
+    params: { paymentId: string; imageUrl: string },
+    extra: RequestHandlerExtra,
+  ) {
+    const userId = requireTenantUserId(extra);
+    const result = await this.payments.uploadPaymentProof(
+      params.paymentId,
+      userId,
+      params.imageUrl,
+    );
     return { content: [{ type: "text", text: JSON.stringify(result) }] };
   }
 }

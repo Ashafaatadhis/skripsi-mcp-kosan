@@ -1,6 +1,12 @@
-import { Module } from "@nestjs/common";
+import {
+  MiddlewareConsumer,
+  Module,
+  NestModule,
+  RequestMethod,
+} from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { LoggerModule } from "nestjs-pino";
+import { BotAuthMiddleware } from "./auth/bot-auth.middleware";
 import { loggerConfig } from "./logging/logger.config";
 import { PrismaModule } from "./prisma/prisma.module";
 import { UsersModule } from "./users/users.module";
@@ -25,4 +31,12 @@ import { MemoryModule } from "./memory/memory.module";
     McpModule,
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(BotAuthMiddleware).forRoutes(
+      { path: "mcp", method: RequestMethod.ALL },
+      { path: "sse", method: RequestMethod.ALL },
+      { path: "users/register", method: RequestMethod.POST },
+    );
+  }
+}

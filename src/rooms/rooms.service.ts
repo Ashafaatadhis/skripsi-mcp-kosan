@@ -1,11 +1,72 @@
 import { Injectable } from "@nestjs/common";
 import { BookingStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
-import { generateHumanId } from "../common/utils/id.util";
 
 @Injectable()
 export class RoomsService {
   constructor(private readonly prisma: PrismaService) {}
+
+  private mapHouseSummary(house: any) {
+    return {
+      humanId: house.humanId,
+      name: house.name,
+      address: house.address,
+      description: house.description,
+      imageUrls: house.images?.map((img: any) => img.url) ?? [],
+      roomCount: house._count?.rooms ?? house.rooms?.length ?? 0,
+    };
+  }
+
+  private mapRoomSummary(room: any) {
+    const bookedCount = room.bookings?.length ?? 0;
+    const availableQuantity = Math.max((room.quantity ?? 0) - bookedCount, 0);
+
+    return {
+      humanId: room.humanId,
+      name: room.name,
+      monthlyPrice: room.monthlyPrice,
+      quantity: room.quantity,
+      availableQuantity,
+      imageUrls: room.images?.map((img: any) => img.url) ?? [],
+      facilities: room.facilities,
+      kosan: room.kosan
+        ? {
+            humanId: room.kosan.humanId,
+            name: room.kosan.name,
+            address: room.kosan.address,
+            imageUrls: room.kosan.images?.map((img: any) => img.url) ?? [],
+          }
+        : null,
+    };
+  }
+
+  /**
+   * Mengambil UUID asli dari Human ID (KSN- atau RM-)
+   */
+  private async resolveToUuid(id: string, type: "kosan" | "room"): Promise<string> {
+    if (!id) return id;
+    
+    // Jika sudah UUID (tanpa prefix KSN/RM), langsung kembalikan
+    if (!id.startsWith("KSN-") && !id.startsWith("RM-")) return id;
+
+    if (type === "kosan" && id.startsWith("KSN-")) {
+      const kosan = await this.prisma.kosan.findUnique({
+        where: { humanId: id },
+        select: { id: true }
+      });
+      return kosan?.id || id;
+    }
+
+    if (type === "room" && id.startsWith("RM-")) {
+      const room = await this.prisma.room.findUnique({
+        where: { humanId: id },
+        select: { id: true }
+      });
+      return room?.id || id;
+    }
+
+    return id;
+  }
 
   async searchRooms(filters: {
     query?: string;
@@ -13,11 +74,12 @@ export class RoomsService {
     kosanId?: string;
   }) {
     const query = filters.query?.trim();
+    const resolvedKosanId = await this.resolveToUuid(filters.kosanId || "", "kosan");
 
     const rooms = await this.prisma.room.findMany({
       where: {
         ...(filters.maxPrice ? { monthlyPrice: { lte: filters.maxPrice } } : {}),
-        ...(filters.kosanId ? { kosanId: filters.kosanId } : {}),
+        ...(resolvedKosanId ? { kosanId: resolvedKosanId } : {}),
         ...(query
           ? {
               OR: [
@@ -31,7 +93,12 @@ export class RoomsService {
           : {}),
       },
       include: {
-        kosan: true,
+        images: true,
+        kosan: {
+          include: {
+            images: true,
+          },
+        },
         bookings: {
           where: { status: BookingStatus.active },
           select: { id: true },
@@ -42,41 +109,28 @@ export class RoomsService {
     });
 
     return {
-      rooms: rooms.map((room) => {
-        const bookedCount = room.bookings.length;
-        const availableQuantity = Math.max(room.quantity - bookedCount, 0);
-
-        return {
-          id: room.id,
-          humanId: room.humanId,
-          name: room.name,
-          monthlyPrice: room.monthlyPrice,
-          quantity: room.quantity,
-          availableQuantity,
-          imageUrls: room.imageUrls,
-          kosan: {
-            id: room.kosan.id,
-            humanId: room.kosan.humanId,
-            name: room.kosan.name,
-            address: room.kosan.address,
-            imageUrls: room.kosan.imageUrls,
-          },
-        };
-      }),
+      rooms: rooms.map((room) => this.mapRoomSummary(room)),
       total: rooms.length,
     };
   }
 
   async getRoomDetail(roomId: string) {
+    const resolvedRoomId = await this.resolveToUuid(roomId, "room");
+
     const room = await this.prisma.room.findFirst({
       where: {
         OR: [
-          { id: roomId },
-          { humanId: roomId }
+          { id: resolvedRoomId },
+          { humanId: resolvedRoomId }
         ]
       },
       include: {
-        kosan: true,
+        images: true,
+        kosan: {
+          include: {
+            images: true,
+          },
+        },
         bookings: {
           where: { status: BookingStatus.active },
           select: { id: true },
@@ -88,25 +142,16 @@ export class RoomsService {
       return null;
     }
 
-    const bookedCount = room.bookings.length;
-    const availableQuantity = Math.max(room.quantity - bookedCount, 0);
+    const mappedRoom = this.mapRoomSummary(room);
 
     return {
-      id: room.id,
-      humanId: room.humanId,
-      name: room.name,
-      monthlyPrice: room.monthlyPrice,
-      quantity: room.quantity,
-      availableQuantity,
-      imageUrls: room.imageUrls,
-      kosan: {
-        id: room.kosan.id,
-        humanId: room.kosan.humanId,
-        name: room.kosan.name,
-        address: room.kosan.address,
-        description: room.kosan.description,
-        imageUrls: room.kosan.imageUrls,
-      },
+      ...mappedRoom,
+      kosan: mappedRoom.kosan
+        ? {
+            ...mappedRoom.kosan,
+            description: room.kosan.description,
+          }
+        : null,
     };
   }
 
@@ -126,6 +171,7 @@ export class RoomsService {
           : {}),
       },
       include: {
+        images: true,
         _count: {
           select: { rooms: true },
         },
@@ -134,57 +180,29 @@ export class RoomsService {
       take: 10,
     });
 
-    return houses.map((h) => ({
-      id: h.id,
-      humanId: h.humanId,
-      name: h.name,
-      address: h.address,
-      description: h.description,
-      imageUrls: h.imageUrls,
-      roomCount: h._count.rooms,
-    }));
+    return houses.map((h) => this.mapHouseSummary(h));
   }
 
   async getHouseDetail(houseId: string) {
+    const resolvedHouseId = await this.resolveToUuid(houseId, "kosan");
+
     const house = await this.prisma.kosan.findFirst({
       where: {
         OR: [
-          { id: houseId },
-          { humanId: houseId }
+          { id: resolvedHouseId },
+          { humanId: resolvedHouseId }
         ]
       },
       include: {
-        rooms: {
-          include: {
-            bookings: {
-              where: { status: BookingStatus.active },
-              select: { id: true },
-            },
-          },
+        images: true,
+        _count: {
+          select: { rooms: true },
         },
       },
     });
 
     if (!house) return null;
 
-    return {
-      id: house.id,
-      name: house.name,
-      address: house.address,
-      description: house.description,
-      imageUrls: house.imageUrls,
-      rooms: house.rooms.map((r) => {
-        const bookedCount = r.bookings.length;
-        const availableQuantity = Math.max(r.quantity - bookedCount, 0);
-        return {
-          id: r.id,
-          humanId: r.humanId,
-          name: r.name,
-          monthlyPrice: r.monthlyPrice,
-          availableQuantity,
-          imageUrls: r.imageUrls,
-        };
-      }),
-    };
+    return this.mapHouseSummary(house);
   }
 }

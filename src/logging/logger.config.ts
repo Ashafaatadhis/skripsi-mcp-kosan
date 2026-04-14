@@ -21,7 +21,14 @@ export const loggerConfig: Params = {
       app: "kosan-mcp",
       env: process.env.NODE_ENV ?? "development",
     },
-    redact: ["req.headers.authorization", "authorization"],
+    redact: [
+      "req.headers.authorization",
+      "req.headers.x-mcp-bot-secret",
+      "req.headers.x-tenant-context",
+      "authorization",
+      "x-mcp-bot-secret",
+      "x-tenant-context",
+    ],
     customProps(req) {
       return {
         requestId: req.id,

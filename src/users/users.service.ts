@@ -5,9 +5,9 @@ import { PrismaService } from "../prisma/prisma.service";
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async registerUser(telegramId: number, name?: string) {
+  async registerUser(telegramId: number | string, name?: string) {
     const existingTenant = await this.prisma.tenant.findUnique({
-      where: { telegramId: BigInt(telegramId) },
+      where: { telegramId: String(telegramId) },
     });
 
     if (existingTenant) {
@@ -16,7 +16,7 @@ export class UsersService {
 
     return this.prisma.tenant.create({
       data: {
-        telegramId: BigInt(telegramId),
+        telegramId: String(telegramId),
         name: name?.trim() || `Tenant ${telegramId}`,
       },
     });
@@ -26,9 +26,9 @@ export class UsersService {
     return this.prisma.tenant.findUnique({ where: { id } });
   }
 
-  async findByTelegramId(telegramId: number) {
+  async findByTelegramId(telegramId: number | string) {
     return this.prisma.tenant.findUnique({
-      where: { telegramId: BigInt(telegramId) },
+      where: { telegramId: String(telegramId) },
     });
   }
 
@@ -36,7 +36,6 @@ export class UsersService {
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: userId },
       select: {
-        id: true,
         name: true,
         phone: true,
         createdAt: true,
@@ -48,7 +47,6 @@ export class UsersService {
     }
 
     return {
-      id: tenant.id,
       name: tenant.name,
       phone: tenant.phone,
       memberSince: tenant.createdAt,
@@ -71,7 +69,6 @@ export class UsersService {
         ...(data.phone && { phone: data.phone }),
       },
       select: {
-        id: true,
         name: true,
         phone: true,
       },

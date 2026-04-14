@@ -12,7 +12,6 @@ export class RoomsTools {
     name: "search_houses",
     description: `Cari bangunan kosan (property). Kata kunci bebas (nama/alamat). BIARKAN KOSONG (null) jika user hanya ingin melihat daftar kosan secara umum atau baru mulai cari.`,
     paramSchema: {
-      userId: z.string().nullable().optional(),
       query: z
         .string()
         .nullable()
@@ -29,13 +28,12 @@ export class RoomsTools {
 
   @Tool({
     name: "get_house_detail",
-    description: `Lihat detail bangunan kosan dan DAFTAR KAMAR yang ada di dalamnya. Gunakan tool ini setelah user memilih salah satu kosan dari hasil pencarian untuk melihat fasilitas bangunan dan tipe kamar apa saja yang tersedia.`,
+    description: `Lihat detail umum bangunan kosan (nama, alamat, deskripsi, foto bangunan). Gunakan tool ini setelah user memilih salah satu kosan dari hasil pencarian. Untuk daftar kamar di kosan tersebut, gunakan search_rooms dengan kosanId.`,
     paramSchema: {
-      userId: z.string().nullable().optional(),
       houseId: z.string().describe("ID kosan yang ingin dilihat detailnya"),
     },
   })
-  async getHouseDetail(params: { userId: string | null; houseId: string }) {
+  async getHouseDetail(params: { houseId: string }) {
     const result = await this.rooms.getHouseDetail(params.houseId);
     return { content: [{ type: "text", text: JSON.stringify(result) }] };
   }
@@ -44,11 +42,10 @@ export class RoomsTools {
     name: "get_room_detail",
     description: `Lihat detail lengkap sebuah kamar (harga, foto, fasilitas).`,
     paramSchema: {
-      userId: z.string().nullable().optional(),
       roomId: z.string().describe("ID kamar yang ingin dilihat detailnya"),
     },
   })
-  async getRoomDetail(params: { userId: string | null; roomId: string }) {
+  async getRoomDetail(params: { roomId: string }) {
     const result = await this.rooms.getRoomDetail(params.roomId);
     return { content: [{ type: "text", text: JSON.stringify(result) }] };
   }
@@ -57,14 +54,12 @@ export class RoomsTools {
     name: "search_rooms",
     description: `Cari kamar tersedia. Bisa langsung cari di semua kosan, atau difilter ke kosan tertentu. BIARKAN query KOSONG (null) jika hanya ingin browsing atau filter harga tanpa kata kunci spesifik.`,
     paramSchema: {
-      userId: z.string().nullable().optional(),
       query: z.string().nullable().optional().describe("Kata kunci nama kamar atau fasilitas"),
       maxPrice: z.number().nullable().optional().describe("Harga maksimal per bulan"),
       kosanId: z.string().nullable().optional().describe("ID kosan jika ingin memfilter ke kosan tertentu"),
     },
   })
   async searchRooms(params: {
-    userId: string | null;
     query?: string | null;
     maxPrice?: number | null;
     kosanId?: string | null;

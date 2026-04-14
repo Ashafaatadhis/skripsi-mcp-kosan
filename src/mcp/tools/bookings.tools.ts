@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
-import { Resolver, Tool } from "@nestjs-mcp/server";
+import { RequestHandlerExtra, Resolver, Tool } from "@nestjs-mcp/server";
 import { z } from "zod";
+import { requireTenantUserId } from "../../auth/mcp-auth";
 import { BookingsService } from "../../bookings/bookings.service";
 
 @Resolver()
@@ -20,23 +21,23 @@ Parameter WAJIB:
 - startDate: tanggal mulai sewa, format YYYY-MM-DD
 - duration: lama sewa dalam bulan`,
     paramSchema: {
-      userId: z.string().nullable().optional(),
       roomId: z.string().describe("ID kamar yang akan dibooking (WAJIB)"),
       startDate: z
         .string()
         .describe("Tanggal mulai sewa, format YYYY-MM-DD (WAJIB)"),
-      duration: z.number().describe("Lama sewa dalam bulan (WAJIB)"),
+      duration: z.number().min(1).describe("Lama sewa dalam bulan (WAJIB, minimal 1)"),
     },
   })
   async createBooking(params: {
-    userId: string | null;
     roomId: string;
     startDate: string;
     duration: number;
-  }) {
+  }, extra: RequestHandlerExtra) {
+    const tenantId = requireTenantUserId(extra);
+
     const result = await this.bookings.createBooking({
       roomId: params.roomId,
-      tenantId: params.userId!,
+      tenantId,
       startDate: params.startDate,
       duration: params.duration,
     });
@@ -48,12 +49,11 @@ Parameter WAJIB:
     description: `Lihat daftar booking milik tenant yang sedang login.
   
 Gunakan tool ini saat user bertanya tentang booking saya, sewa saya, kamar yang sedang saya tempati, atau butuh daftar booking terbaru.`,
-    paramSchema: {
-      userId: z.string().nullable().optional()
-    }
+    paramSchema: {}
   })
-  async getMyBookings(params: { userId: string | null }) {
-    const result = await this.bookings.listTenantBookings(params.userId!);
+  async getMyBookings(_params: Record<string, never>, extra: RequestHandlerExtra) {
+    const tenantId = requireTenantUserId(extra);
+    const result = await this.bookings.listTenantBookings(tenantId);
     return { content: [{ type: "text", text: JSON.stringify(result) }] };
   }
 
@@ -61,12 +61,15 @@ Gunakan tool ini saat user bertanya tentang booking saya, sewa saya, kamar yang 
     name: "get_booking_status",
     description: `Cek status booking yang sudah dibuat.`,
     paramSchema: {
-      userId: z.string().nullable().optional(),
-      bookingId: z.string().describe("ID booking yang ingin dicek statusnya (WAJIB)"),
+      bookingId: z.string().describe("ID booking yang ingin dicek statusnya (gunakan Human ID seperti BKG-XXXX jika tersedia)"),
     },
   })
-  async getBookingStatus(params: { userId: string | null; bookingId: string }) {
-    const result = await this.bookings.getBookingStatus(params.bookingId, params.userId!);
+  async getBookingStatus(
+    params: { bookingId: string },
+    extra: RequestHandlerExtra,
+  ) {
+    const tenantId = requireTenantUserId(extra);
+    const result = await this.bookings.getBookingStatus(params.bookingId, tenantId);
     return { content: [{ type: "text", text: JSON.stringify(result) }] };
   }
 
@@ -74,12 +77,15 @@ Gunakan tool ini saat user bertanya tentang booking saya, sewa saya, kamar yang 
     name: "cancel_booking",
     description: `Batalkan booking aktif.`,
     paramSchema: {
-      userId: z.string().nullable().optional(),
-      bookingId: z.string().describe("ID booking yang akan dibatalkan (WAJIB)"),
+      bookingId: z.string().describe("ID booking yang akan dibatalkan (gunakan Human ID seperti BKG-XXXX jika tersedia)"),
     },
   })
-  async cancelBooking(params: { userId: string | null; bookingId: string }) {
-    const result = await this.bookings.cancelBooking(params.bookingId, params.userId!);
+  async cancelBooking(
+    params: { bookingId: string },
+    extra: RequestHandlerExtra,
+  ) {
+    const tenantId = requireTenantUserId(extra);
+    const result = await this.bookings.cancelBooking(params.bookingId, tenantId);
     return { content: [{ type: "text", text: JSON.stringify(result) }] };
   }
 }

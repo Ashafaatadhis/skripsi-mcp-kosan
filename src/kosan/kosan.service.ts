@@ -27,7 +27,9 @@ export class KosanService {
         name: data.name,
         address: data.address,
         description: data.description,
-        imageUrls: data.imageUrls ?? [],
+        images: {
+          create: (data.imageUrls ?? []).map((url) => ({ url })),
+        },
       },
     });
   }
