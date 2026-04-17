@@ -1,10 +1,10 @@
 import { Module, forwardRef } from "@nestjs/common";
-import { BookingsService } from "./bookings.service";
+import { RentalsService } from "./rentals.service";
 import { PaymentsModule } from "../payments/payments.module";
 
 @Module({
   imports: [forwardRef(() => PaymentsModule)],
-  providers: [BookingsService],
-  exports: [BookingsService],
+  providers: [RentalsService],
+  exports: [RentalsService],
 })
-export class BookingsModule {}
+export class RentalsModule {}

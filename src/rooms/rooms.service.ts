@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { BookingStatus } from "@prisma/client";
+import { RentalStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 
 @Injectable()
@@ -18,7 +18,7 @@ export class RoomsService {
   }
 
   private mapRoomSummary(room: any) {
-    const bookedCount = room.bookings?.length ?? 0;
+    const bookedCount = room.rentals?.length ?? 0;
     const availableQuantity = Math.max((room.quantity ?? 0) - bookedCount, 0);
 
     return {
@@ -99,8 +99,8 @@ export class RoomsService {
             images: true,
           },
         },
-        bookings: {
-          where: { status: BookingStatus.active },
+        rentals: {
+          where: { status: RentalStatus.active },
           select: { id: true },
         },
       },
@@ -131,8 +131,8 @@ export class RoomsService {
             images: true,
           },
         },
-        bookings: {
-          where: { status: BookingStatus.active },
+        rentals: {
+          where: { status: RentalStatus.active },
           select: { id: true },
         },
       },

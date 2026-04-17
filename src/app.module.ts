@@ -12,7 +12,7 @@ import { PrismaModule } from "./prisma/prisma.module";
 import { UsersModule } from "./users/users.module";
 import { KosanModule } from "./kosan/kosan.module";
 import { RoomsModule } from "./rooms/rooms.module";
-import { BookingsModule } from "./bookings/bookings.module";
+import { RentalsModule } from "./rentals/rentals.module";
 import { PaymentsModule } from "./payments/payments.module";
 import { McpModule } from "./mcp/mcp.module";
 import { MemoryModule } from "./memory/memory.module";
@@ -25,7 +25,7 @@ import { MemoryModule } from "./memory/memory.module";
     UsersModule,
     KosanModule,
     RoomsModule,
-    BookingsModule,
+    RentalsModule,
     PaymentsModule,
     MemoryModule,
     McpModule,

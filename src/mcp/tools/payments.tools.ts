@@ -10,8 +10,32 @@ export class PaymentsTools {
   constructor(private readonly payments: PaymentsService) {}
 
   @Tool({
+    name: "create_payment",
+    description: `Buat tagihan pembayaran baru untuk sewa aktif tenant.
+
+Gunakan tool ini ketika user sudah jelas ingin membayar dan jumlah bulannya sudah diketahui.
+Jika tenant hanya punya satu sewa aktif, rentalId boleh dikosongkan.`,
+    paramSchema: {
+      monthsPaid: z.number().min(1).describe("Jumlah bulan yang ingin dibayar (minimal 1)"),
+      rentalId: z.string().optional().describe("ID sewa aktif jika user punya lebih dari satu sewa aktif"),
+    },
+  })
+  async createPayment(
+    params: { monthsPaid: number; rentalId?: string },
+    extra: RequestHandlerExtra,
+  ) {
+    const userId = requireTenantUserId(extra);
+    const result = await this.payments.createPayment({
+      tenantId: userId,
+      monthsPaid: params.monthsPaid,
+      rentalId: params.rentalId,
+    });
+    return { content: [{ type: "text", text: JSON.stringify(result) }] };
+  }
+
+  @Tool({
     name: "get_pending_payments",
-    description: `Lihat tagihan pembayaran tenant yang belum dibayar.`,
+    description: `Lihat tagihan pembayaran tenant yang belum dibayar, beserta preview tagihan periode berikutnya jika belum ada tagihan pending.`,
     paramSchema: {}
   })
   async getPendingPayments(

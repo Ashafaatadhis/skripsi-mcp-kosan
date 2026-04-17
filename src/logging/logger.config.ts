@@ -73,11 +73,11 @@ export const EVENT_ICONS = {
   ROOM_STATUS: "🔄",
   ROOM_SEARCH: "🔍",
 
-  // Booking events
-  BOOKING_CREATE: "📝",
-  BOOKING_CONFIRM: "✅",
-  BOOKING_REJECT: "❌",
-  BOOKING_CANCEL: "🚫",
+  // Rental events
+  RENTAL_CREATE: "📝",
+  RENTAL_CONFIRM: "✅",
+  RENTAL_REJECT: "❌",
+  RENTAL_CANCEL: "🚫",
 
   // Payment events
   PAYMENT_CREATE: "💳",

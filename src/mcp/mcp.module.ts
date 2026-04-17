@@ -7,12 +7,12 @@ import {
   SessionManager,
 } from "@nestjs-mcp/server";
 import { RoomsModule } from "../rooms/rooms.module";
-import { BookingsModule } from "../bookings/bookings.module";
+import { RentalsModule } from "../rentals/rentals.module";
 import { PaymentsModule } from "../payments/payments.module";
 import { UsersModule } from "../users/users.module";
 import { MemoryModule } from "../memory/memory.module";
 import { RoomsTools } from "./tools/rooms.tools";
-import { BookingsTools } from "./tools/bookings.tools";
+import { RentalsTools } from "./tools/rentals.tools";
 import { PaymentsTools } from "./tools/payments.tools";
 import { ProfileTools } from "./tools/profile.tools";
 import { MemoryTools } from "./tools/memory.tools";
@@ -45,14 +45,14 @@ const MCP_TRANSPORT_OPTIONS = {
   imports: [
     DiscoveryModule,
     RoomsModule,
-    BookingsModule,
+    RentalsModule,
     PaymentsModule,
     UsersModule,
     MemoryModule,
   ],
   providers: [
     RoomsTools,
-    BookingsTools,
+    RentalsTools,
     PaymentsTools,
     ProfileTools,
     MemoryTools,

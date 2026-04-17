@@ -12,8 +12,8 @@ model Owner {
   passwordHash String   @map("password_hash") @db.VarChar(255)
   name         String   @db.VarChar(100)
   phone        String?  @db.VarChar(20)
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
   kosan        Kosan[]
 
   @@map("owners")
@@ -25,8 +25,8 @@ model Kosan {
   name        String   @db.VarChar(100)
   address     String
   description String?
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
   humanId     String   @unique @map("human_id")
   owner       Owner    @relation(fields: [ownerId], references: [id])
   rooms       Room[]
@@ -40,12 +40,12 @@ model Room {
   kosanId      String    @map("kosan_id") @db.Uuid
   name         String    @db.VarChar(50)
   monthlyPrice Int       @map("monthly_price")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   humanId      String    @unique @map("human_id")
   quantity     Int       @default(1)
   facilities   String[]  @default([]) @map("facilities")
-  bookings     Booking[]
+  rentals      Rental[]
   kosan        Kosan     @relation(fields: [kosanId], references: [id])
   images       Image[]
 
@@ -57,44 +57,48 @@ model Tenant {
   telegramId String?   @unique @map("telegram_id")
   name       String    @db.VarChar(100)
   phone      String?   @db.VarChar(20)
-  createdAt  DateTime  @default(now()) @map("created_at")
-  updatedAt  DateTime  @updatedAt @map("updated_at")
-  bookings   Booking[]
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  rentals    Rental[]
 
   @@map("tenants")
 }
 
-model Booking {
-  id        String        @id @default(uuid()) @db.Uuid
-  humanId   String        @unique @map("human_id")
-  roomId    String        @map("room_id") @db.Uuid
-  tenantId  String        @map("tenant_id") @db.Uuid
-  startDate DateTime      @map("start_date") @db.Date
-  endDate   DateTime?     @map("end_date") @db.Date
-  status    BookingStatus @default(active)
-  note      String?
-  createdAt DateTime      @default(now()) @map("created_at")
-  updatedAt DateTime      @updatedAt @map("updated_at")
-  room      Room          @relation(fields: [roomId], references: [id])
-  tenant    Tenant        @relation(fields: [tenantId], references: [id])
-  payments  Payment[]
+model Rental {
+  id                   String       @id @default(uuid()) @db.Uuid
+  humanId              String       @unique @map("human_id")
+  roomId               String       @map("room_id") @db.Uuid
+  tenantId             String       @map("tenant_id") @db.Uuid
+  startDate            DateTime     @map("start_date") @db.Date
+  monthlyPriceSnapshot Int          @map("monthly_price_snapshot")
+  paidUntil            DateTime?    @map("paid_until") @db.Date
+  checkoutDate         DateTime?    @map("checkout_date") @db.Date
+  status               RentalStatus @default(active)
+  note                 String?
+  createdAt            DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  room                 Room         @relation(fields: [roomId], references: [id])
+  tenant               Tenant       @relation(fields: [tenantId], references: [id])
+  payments             Payment[]
 
-  @@map("bookings")
+  @@map("rentals")
 }
 
 model Payment {
-  id             String        @id @default(uuid()) @db.Uuid
-  humanId        String        @unique @map("human_id")
-  amount         Int
-  dueDate        DateTime      @map("due_date") @db.Date
-  paidAt         DateTime?     @map("paid_at")
-  status         PaymentStatus @default(pending)
-  note           String?
-  createdAt      DateTime      @default(now()) @map("created_at")
-  updatedAt      DateTime      @updatedAt @map("updated_at")
-  bookingId      String        @map("booking_id") @db.Uuid
-  booking        Booking       @relation(fields: [bookingId], references: [id])
-  images         Image[]
+  id          String        @id @default(uuid()) @db.Uuid
+  humanId     String        @unique @map("human_id")
+  rentalId    String        @map("rental_id") @db.Uuid
+  monthsPaid  Int           @map("months_paid")
+  periodStart DateTime      @map("period_start") @db.Date
+  periodEnd   DateTime      @map("period_end") @db.Date
+  amount      Int
+  paidAt      DateTime?     @map("paid_at") @db.Timestamptz(3)
+  status      PaymentStatus @default(pending)
+  note        String?
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  rental      Rental        @relation(fields: [rentalId], references: [id])
+  images      Image[]
 
   @@map("payments")
 }
@@ -105,7 +109,7 @@ model Image {
   kosanId   String?  @map("kosan_id") @db.Uuid
   roomId    String?  @map("room_id") @db.Uuid
   paymentId String?  @map("payment_id") @db.Uuid
-  createdAt DateTime @default(now()) @map("created_at")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
   kosan   Kosan?   @relation(fields: [kosanId], references: [id], onDelete: Cascade)
   room    Room?    @relation(fields: [roomId], references: [id], onDelete: Cascade)
@@ -165,19 +169,19 @@ model long_term_memory {
   confidence        Float?
   importance_score  Float?
   mention_count     Int?                   @default(1)
-  last_confirmed_at DateTime?              @default(now()) @db.Timestamp(6)
-  expires_at        DateTime?              @db.Timestamp(6)
-  created_at        DateTime?              @default(now()) @db.Timestamp(6)
+  last_confirmed_at DateTime?              @default(now()) @db.Timestamptz(6)
+  expires_at        DateTime?              @db.Timestamptz(6)
+  created_at        DateTime?              @default(now()) @db.Timestamptz(6)
 
   @@unique([user_id, canonical_key])
   @@index([expires_at], map: "idx_ltm_expires")
   @@index([user_id], map: "idx_ltm_user_id")
 }
 
-enum BookingStatus {
+enum RentalStatus {
   active
-  completed
   cancelled
+  checked_out
 }
 
 enum PaymentStatus {
