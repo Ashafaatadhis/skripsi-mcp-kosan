@@ -256,4 +256,76 @@ export class RentalsService {
           : `Sewa aktif dibatalkan. Tanggal mulai sebelumnya ${toDateOnlyIso(updatedRental.startDate)}.`,
     };
   }
+
+  async endRental(rentalId: string, tenantId: string, checkoutDate?: string) {
+    const resolvedRentalId = await this.resolveToUuid(normalizeId(rentalId), "rental");
+
+    const existingRental = await this.prisma.rental.findFirst({
+      where: { id: resolvedRentalId, tenantId },
+      select: {
+        id: true,
+        humanId: true,
+        status: true,
+        startDate: true,
+        payments: {
+          select: { id: true, status: true },
+        },
+      },
+    });
+
+    if (!existingRental) {
+      throw new Error("Sewa tidak ditemukan untuk tenant ini");
+    }
+
+    if (existingRental.status !== RentalStatus.active) {
+      throw new Error("Hanya sewa aktif yang bisa diakhiri");
+    }
+
+    const parsedCheckoutDate = checkoutDate ? new Date(checkoutDate) : new Date();
+    if (Number.isNaN(parsedCheckoutDate.getTime())) {
+      throw new Error("Tanggal keluar tidak valid");
+    }
+
+    const hasPaidPayment = existingRental.payments.some(
+      (payment) => payment.status === PaymentStatus.paid,
+    );
+    const unpaidPaymentIds = existingRental.payments
+      .filter((payment) =>
+        payment.status === PaymentStatus.pending || payment.status === PaymentStatus.overdue,
+      )
+      .map((payment) => payment.id);
+    const nextStatus = hasPaidPayment ? RentalStatus.checked_out : RentalStatus.cancelled;
+
+    const [, updatedRental] = await this.prisma.$transaction([
+      this.prisma.payment.updateMany({
+        where: {
+          id: {
+            in: unpaidPaymentIds,
+          },
+        },
+        data: {
+          status: PaymentStatus.cancelled,
+        },
+      }),
+      this.prisma.rental.update({
+        where: { id: resolvedRentalId },
+        data: {
+          status: nextStatus,
+          checkoutDate: parsedCheckoutDate,
+        },
+        include: this.getRentalInclude(),
+      }),
+    ]);
+
+    const statusLabel = nextStatus === RentalStatus.checked_out ? "diakhiri" : "dibatalkan";
+
+    return {
+      message: `Sewa ${updatedRental.humanId} berhasil ${statusLabel}.`,
+      rental: this.mapRental(updatedRental),
+      summary:
+        unpaidPaymentIds.length > 0
+          ? `Sewa aktif ${statusLabel}. ${unpaidPaymentIds.length} tagihan yang belum lunas juga otomatis dibatalkan. Tanggal keluar ${toDateOnlyIso(updatedRental.checkoutDate)}.`
+          : `Sewa aktif ${statusLabel}. Tanggal keluar ${toDateOnlyIso(updatedRental.checkoutDate)}.`,
+    };
+  }
 }

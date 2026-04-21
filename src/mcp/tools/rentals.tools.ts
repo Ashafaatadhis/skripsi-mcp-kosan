@@ -84,4 +84,33 @@ Gunakan tool ini saat user bertanya tentang sewa saya, kamar yang sedang saya te
     const result = await this.rentals.cancelRental(params.rentalId, tenantId);
     return { content: [{ type: "text", text: JSON.stringify(result) }] };
   }
+
+  @Tool({
+    name: "end_rental",
+    description: `Akhiri sewa aktif milik tenant.
+
+Gunakan tool ini untuk checkout, berhenti sewa, pindah kamar, atau membatalkan sewa aktif secara aman.
+Jika sewa sudah punya pembayaran lunas, status sewa akan menjadi checked_out.
+Jika belum ada pembayaran lunas, status sewa akan menjadi cancelled.
+Tagihan pending/overdue yang belum lunas akan otomatis dibatalkan.`,
+    paramSchema: {
+      rentalId: z.string().describe("ID sewa aktif yang akan diakhiri (gunakan Human ID seperti RNT-XXXX)"),
+      checkoutDate: z
+        .string()
+        .optional()
+        .describe("Tanggal keluar/akhir sewa, format YYYY-MM-DD. Jika kosong, sistem memakai tanggal hari ini."),
+    },
+  })
+  async endRental(
+    params: { rentalId: string; checkoutDate?: string },
+    extra: RequestHandlerExtra,
+  ) {
+    const tenantId = requireTenantUserId(extra);
+    const result = await this.rentals.endRental(
+      params.rentalId,
+      tenantId,
+      params.checkoutDate,
+    );
+    return { content: [{ type: "text", text: JSON.stringify(result) }] };
+  }
 }
